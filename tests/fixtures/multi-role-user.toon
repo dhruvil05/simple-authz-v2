@@ -1,0 +1,30 @@
+# multi-role-user.toon
+# Tests users who carry more than one role
+
+rule
+  role viewer
+  action view
+  resource listing
+  effect allow
+end
+
+rule
+  role editor
+  action edit
+  resource listing
+  effect allow
+end
+
+rule
+  role editor
+  action publish
+  resource listing
+  effect allow
+end
+
+rule
+  role admin
+  action delete
+  resource listing
+  effect allow
+end

@@ -1,0 +1,12 @@
+# include-main.toon
+# Tests the include directive — pulls rules from a separate file
+
+include "./basic-rbac.toon"
+
+# Additional rules defined in this file
+rule
+  role super_admin
+  action *
+  resource *
+  effect allow
+end

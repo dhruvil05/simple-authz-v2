@@ -1,0 +1,15 @@
+# wildcard.toon
+
+rule
+  role admin
+  action *
+  resource *
+  effect allow
+end
+
+rule
+  role moderator
+  action *
+  resource listing
+  effect allow
+end

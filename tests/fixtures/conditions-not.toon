@@ -1,0 +1,17 @@
+# conditions-not.toon
+
+rule
+  role broker
+  action edit
+  resource listing
+  effect allow
+  condition NOT resource.archived == true
+end
+
+rule
+  role user
+  action comment
+  resource listing
+  effect allow
+  condition NOT resource.locked == true AND resource.status == "public"
+end

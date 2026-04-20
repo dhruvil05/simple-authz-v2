@@ -1,0 +1,13 @@
+src/
+tests/
+docs/
+coverage/
+.github/
+.nvmrc
+.prettierrc
+eslint.config.ts
+tsconfig.json
+tsup.config.ts
+vitest.config.ts
+*.log
+*.tsbuildinfo

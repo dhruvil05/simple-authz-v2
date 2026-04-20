@@ -1,0 +1,11 @@
+# invalid-syntax.toon
+# This file is INTENTIONALLY invalid.
+# The parser must throw ParseError when loading this file.
+# Used exclusively by error-path tests.
+
+rule
+  role admin
+  action *
+  # missing "resource" line
+  effect allow
+  # missing "end" keyword — parser should catch this

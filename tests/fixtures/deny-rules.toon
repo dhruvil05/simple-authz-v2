@@ -1,0 +1,34 @@
+# deny-rules.toon
+# Explicit deny overrides any allow
+
+rule
+  role admin
+  action *
+  resource *
+  effect allow
+end
+
+# Even admins cannot delete archived listings
+rule
+  role admin
+  action delete
+  resource archived_listing
+  effect deny
+end
+
+rule
+  role broker
+  action edit
+  resource listing
+  effect allow
+  condition resource.owner_id == user.id
+end
+
+# Brokers cannot edit suspended listings, even ones they own
+rule
+  role broker
+  action edit
+  resource listing
+  effect deny
+  condition resource.suspended == true
+end

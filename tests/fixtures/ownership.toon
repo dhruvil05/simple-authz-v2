@@ -1,0 +1,26 @@
+# ownership.toon
+# Rules that check resource ownership via conditions
+
+rule
+  role broker
+  action edit
+  resource listing
+  effect allow
+  condition resource.owner_id == user.id
+end
+
+rule
+  role broker
+  action delete
+  resource listing
+  effect allow
+  condition resource.owner_id == user.id AND resource.status == "draft"
+end
+
+rule
+  role user
+  action view
+  resource listing
+  effect allow
+  condition resource.status == "public" OR resource.owner_id == user.id
+end

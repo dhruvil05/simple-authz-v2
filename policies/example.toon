@@ -1,0 +1,97 @@
+# example.toon
+# A real-world style policy for a property listing application.
+# Copy this file and adapt it for your own application.
+
+# ── Role hierarchy ──────────────────────────────────────────────────────────
+
+role_hierarchy
+  super_admin extends admin
+  admin extends moderator
+  moderator extends broker
+  broker extends user
+end
+
+# ── Admin: full access ──────────────────────────────────────────────────────
+
+rule
+  role admin
+  action *
+  resource *
+  effect allow
+end
+
+# Even admins cannot delete archived records
+rule
+  role admin
+  action delete
+  resource archived_listing
+  effect deny
+end
+
+# ── Moderator: manage listings ──────────────────────────────────────────────
+
+rule
+  role moderator
+  action approve
+  resource listing
+  effect allow
+end
+
+rule
+  role moderator
+  action reject
+  resource listing
+  effect allow
+end
+
+# ── Broker: own listings ────────────────────────────────────────────────────
+
+rule
+  role broker
+  action publish
+  resource listing
+  effect allow
+  condition resource.owner_id == user.id
+end
+
+rule
+  role broker
+  action edit
+  resource listing
+  effect allow
+  condition resource.owner_id == user.id AND resource.status == "draft"
+end
+
+rule
+  role broker
+  action delete
+  resource listing
+  effect allow
+  condition resource.owner_id == user.id AND resource.status == "draft"
+end
+
+# Brokers cannot edit suspended listings even if they own them
+rule
+  role broker
+  action edit
+  resource listing
+  effect deny
+  condition resource.suspended == true
+end
+
+# ── User: read public content ───────────────────────────────────────────────
+
+rule
+  role user
+  action view
+  resource listing
+  effect allow
+  condition resource.status == "public" OR resource.owner_id == user.id
+end
+
+rule
+  role user
+  action view
+  resource profile
+  effect allow
+end

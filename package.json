@@ -1,0 +1,76 @@
+{
+  "name": "simple-authz",
+  "version": "2.0.0-alpha.0",
+  "description": "A lightweight, secure authorization engine for Node.js using TOON policy files",
+  "author": "Dhruvil",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "build:watch": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests",
+    "lint:fix": "eslint src tests --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:security": "vitest run tests/security",
+    "ci": "pnpm typecheck && pnpm lint && pnpm test:coverage && pnpm build",
+    "prepublishOnly": "pnpm ci"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "authorization",
+    "authz",
+    "rbac",
+    "abac",
+    "policy",
+    "permissions",
+    "security",
+    "toon"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.19.39",
+    "@typescript-eslint/eslint-plugin": "^8.58.2",
+    "@typescript-eslint/parser": "^8.58.2",
+    "@vitest/coverage-v8": "^2.1.9",
+    "eslint": "^9.39.4",
+    "prettier": "^3.8.3",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dhruvil05/simple-authz.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dhruvil05/simple-authz/issues"
+  },
+  "homepage": "https://github.com/dhruvil05/simple-authz#readme"
+}

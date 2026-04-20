@@ -1,0 +1,30 @@
+# basic-rbac.toon
+# Simple role-based access control — no conditions
+
+rule
+  role admin
+  action *
+  resource *
+  effect allow
+end
+
+rule
+  role broker
+  action publish
+  resource listing
+  effect allow
+end
+
+rule
+  role broker
+  action view
+  resource listing
+  effect allow
+end
+
+rule
+  role user
+  action view
+  resource listing
+  effect allow
+end

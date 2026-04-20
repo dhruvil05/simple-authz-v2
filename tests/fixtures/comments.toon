@@ -1,0 +1,25 @@
+# comments.toon
+# This entire file tests that comments are ignored correctly
+
+# Top-level comment before first rule
+
+rule
+  # comment inside rule block
+  role admin     # inline comment after value
+  action *       # another inline
+  resource *
+  # comment between statements
+  effect allow
+end
+
+# Comment between rules
+
+rule
+  role user
+  # comment before role value line
+  action view
+  resource listing
+  effect allow   # inline on effect
+end
+
+# Trailing comment at end of file

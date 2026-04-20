@@ -1,0 +1,25 @@
+# conditions-and-or.toon
+
+rule
+  role user
+  action view
+  resource listing
+  effect allow
+  condition resource.status == "public" OR resource.owner_id == user.id
+end
+
+rule
+  role broker
+  action publish
+  resource listing
+  effect allow
+  condition resource.owner_id == user.id AND resource.status == "draft"
+end
+
+rule
+  role moderator
+  action approve
+  resource listing
+  effect allow
+  condition resource.flagged == false AND resource.status == "pending"
+end

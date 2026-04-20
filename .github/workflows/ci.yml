@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main, develop]
+  pull_request:
+    branches: [master, main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI (${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Test with coverage
+        run: pnpm test:coverage
+
+      - name: Security — assert no eval() usage
+        run: |
+          if grep -rn "eval(" src/ --include="*.ts"; then
+            echo "FAIL: eval() found in src/ — this is a critical security violation"
+            exit 1
+          fi
+          if grep -rn "new Function(" src/ --include="*.ts"; then
+            echo "FAIL: new Function() found in src/ — this is a critical security violation"
+            exit 1
+          fi
+          echo "PASS: no eval() or new Function() in source"
+
+      - name: Build
+        run: pnpm build
+
+      - name: Assert dist files exist
+        run: |
+          test -f dist/index.cjs || (echo "FAIL: dist/index.cjs missing" && exit 1)
+          test -f dist/index.mjs || (echo "FAIL: dist/index.mjs missing" && exit 1)
+          test -f dist/index.d.ts || (echo "FAIL: dist/index.d.ts missing" && exit 1)
+          echo "PASS: all dist files present"
+
+      - name: Upload coverage
+        if: matrix.node-version == 20
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7

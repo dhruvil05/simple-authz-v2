@@ -1,0 +1,36 @@
+# role-hierarchy.toon
+# Demonstrates role inheritance
+
+role_hierarchy
+  super_admin extends admin
+  admin extends editor
+  editor extends viewer
+end
+
+rule
+  role viewer
+  action view
+  resource listing
+  effect allow
+end
+
+rule
+  role editor
+  action edit
+  resource listing
+  effect allow
+end
+
+rule
+  role admin
+  action delete
+  resource listing
+  effect allow
+end
+
+rule
+  role super_admin
+  action purge
+  resource listing
+  effect allow
+end
