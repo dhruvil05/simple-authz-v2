@@ -1,0 +1,581 @@
+; ═══════════════════════════════════════════════════════════════════════════════
+; TOON v2 — Token-Oriented Object Notation
+; Formal Grammar Specification (Extended Backus-Naur Form)
+;
+; This file is the authoritative definition of the TOON v2 policy language.
+; The lexer, parser, and all tooling MUST conform to this specification.
+; Any ambiguity in source code is resolved by this document — not the reverse.
+;
+; EBNF notation used here:
+;   =       definition
+;   |       alternation
+;   [ ]     optional (zero or one)
+;   { }     repetition (zero or more)
+;   ( )     grouping
+;   " "     terminal string (literal)
+;   ' '     terminal string (literal, alternate quote)
+;   (* *)   comment
+;   ;       rule terminator
+; ═══════════════════════════════════════════════════════════════════════════════
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 1. TOP-LEVEL DOCUMENT
+; ───────────────────────────────────────────────────────────────────────────────
+
+; A policy document is a sequence of zero or more top-level declarations,
+; separated by any amount of whitespace and blank lines.
+; An empty file is valid and produces a document with no rules.
+
+policy_document
+  = { top_level_decl } EOF
+  ;
+
+top_level_decl
+  = rule_block
+  | role_hierarchy_block
+  | include_directive
+  ;
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 2. RULE BLOCK
+; ───────────────────────────────────────────────────────────────────────────────
+
+; A rule block defines a single authorization rule.
+; Statements inside a rule block may appear in any order EXCEPT:
+;   - "role", "action", "resource" are ALL required (exactly once each).
+;   - "effect" is optional; defaults to "allow" if omitted.
+;   - "condition" is optional; if present, appears exactly once.
+;
+; Duplicate statements (e.g. two "role" lines) are a parse error.
+
+rule_block
+  = "rule" NEWLINE
+    rule_statement { rule_statement }
+    "end" NEWLINE
+  ;
+
+rule_statement
+  = role_stmt
+  | action_stmt
+  | resource_stmt
+  | effect_stmt
+  | condition_stmt
+  ;
+
+role_stmt
+  = "role" IDENTIFIER NEWLINE
+  ;
+
+action_stmt
+  = "action" ( IDENTIFIER | WILDCARD ) NEWLINE
+  ;
+
+resource_stmt
+  = "resource" ( IDENTIFIER | WILDCARD ) NEWLINE
+  ;
+
+; Effect defaults to "allow" when this statement is omitted.
+effect_stmt
+  = "effect" effect_value NEWLINE
+  ;
+
+effect_value
+  = "allow"
+  | "deny"
+  ;
+
+condition_stmt
+  = "condition" condition_expr NEWLINE
+  ;
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 3. ROLE HIERARCHY BLOCK
+; ───────────────────────────────────────────────────────────────────────────────
+
+; Declares inheritance relationships between roles.
+; At most ONE role_hierarchy block is permitted per policy document.
+; If multiple files are included, each may have its own role_hierarchy block;
+; the compiler merges them and detects conflicts or cycles.
+;
+; "role_a extends role_b" means role_a inherits ALL permissions of role_b.
+; Multiple parents are allowed: "role_a extends role_b, role_c"
+; Cycles (A extends B, B extends A) are a compile-time error.
+
+role_hierarchy_block
+  = "role_hierarchy" NEWLINE
+    { hierarchy_entry }
+    "end" NEWLINE
+  ;
+
+hierarchy_entry
+  = IDENTIFIER "extends" IDENTIFIER { "," IDENTIFIER } NEWLINE
+  ;
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 4. INCLUDE DIRECTIVE
+; ───────────────────────────────────────────────────────────────────────────────
+
+; Includes another .toon file. The path is resolved relative to the
+; directory containing the file that contains the include directive.
+; Circular includes (A includes B includes A) are a compile-time error.
+; The included file is parsed as a full policy_document and merged.
+
+include_directive
+  = "include" STRING NEWLINE
+  ;
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 5. CONDITION EXPRESSIONS
+; ───────────────────────────────────────────────────────────────────────────────
+
+; Conditions use a three-level precedence grammar:
+;   Level 1 (lowest): OR  — left-associative
+;   Level 2         : AND — left-associative
+;   Level 3         : NOT — right-associative (unary prefix)
+;   Level 4 (highest): comparison, atom, parenthesised group
+;
+; Short-circuit evaluation is REQUIRED:
+;   AND: if left is false, right MUST NOT be evaluated.
+;   OR:  if left is true,  right MUST NOT be evaluated.
+;
+; This grammar is unambiguous: AND binds tighter than OR, NOT tighter than AND.
+; Example: A OR B AND C  parses as  A OR (B AND C)
+; Example: NOT A AND B   parses as  (NOT A) AND B
+
+condition_expr
+  = or_expr
+  ;
+
+or_expr
+  = and_expr { "OR" and_expr }
+  ;
+
+and_expr
+  = not_expr { "AND" not_expr }
+  ;
+
+not_expr
+  = "NOT" not_expr          (* right-associative: NOT NOT A is valid *)
+  | comparison_expr
+  ;
+
+comparison_expr
+  = atom comparison_op atom
+  | atom                    (* a bare atom — evaluates as boolean truthiness *)
+  ;
+
+comparison_op
+  = "=="
+  | "!="
+  | ">"
+  | ">="
+  | "<"
+  | "<="
+  ;
+
+atom
+  = path_expr
+  | literal_expr
+  | "(" condition_expr ")"  (* parenthesised sub-expression *)
+  ;
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 6. PATH EXPRESSIONS
+; ───────────────────────────────────────────────────────────────────────────────
+
+; A path expression resolves a value from the evaluation context.
+; The first segment MUST be one of the three root variables:
+;   user     — the authenticated subject
+;   resource — the object being acted upon
+;   ctx      — optional extra context passed by the caller
+;
+; Any other first segment is a parse error (caught at compile time).
+; Subsequent segments may be any valid IDENTIFIER.
+; Unknown paths at evaluation time resolve to undefined (never throw).
+;
+; Examples:
+;   user.id
+;   resource.owner_id
+;   resource.meta.status
+;   ctx.tenant_id
+
+path_expr
+  = root_variable { "." IDENTIFIER }
+  ;
+
+root_variable
+  = "user"
+  | "resource"
+  | "ctx"
+  ;
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 7. LITERAL EXPRESSIONS
+; ───────────────────────────────────────────────────────────────────────────────
+
+; Literals represent constant values in conditions.
+; The evaluator uses strict equality (===) — no JS-style type coercion.
+
+literal_expr
+  = STRING
+  | NUMBER
+  | BOOLEAN
+  | NULL
+  ;
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 8. LEXICAL TOKENS
+; ───────────────────────────────────────────────────────────────────────────────
+; These are the terminal symbols produced by the Lexer.
+; All other productions in this grammar are composed from these tokens.
+
+; ── Keywords ──────────────────────────────────────────────────────────────────
+; Keywords are case-sensitive. "Rule" or "RULE" are identifiers, not keywords.
+
+KEYWORD
+  = "rule"
+  | "end"
+  | "role"
+  | "action"
+  | "resource"
+  | "condition"
+  | "effect"
+  | "allow"
+  | "deny"
+  | "include"
+  | "role_hierarchy"
+  | "extends"
+  | "AND"           (* logical operators are uppercase — prevents collision  *)
+  | "OR"            (* with common identifier names like "and", "or", "not"  *)
+  | "NOT"
+  | "true"          (* boolean literals are lowercase                         *)
+  | "false"
+  | "null"
+  ;
+
+; ── Identifier ────────────────────────────────────────────────────────────────
+; Identifiers are used for role names, action names, resource names,
+; and path segments. They must NOT match any keyword.
+;
+; Pattern:  [a-zA-Z_][a-zA-Z0-9_]*
+; Examples: admin, broker, owner_id, listing, archived_listing, v2beta
+
+IDENTIFIER
+  = LETTER_OR_UNDERSCORE { LETTER_OR_UNDERSCORE | DIGIT }
+  ;   (* where the resulting string is not a KEYWORD *)
+
+LETTER_OR_UNDERSCORE
+  = "a" | "b" | ... | "z"
+  | "A" | "B" | ... | "Z"
+  | "_"
+  ;
+
+DIGIT
+  = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+  ;
+
+; ── Wildcard ──────────────────────────────────────────────────────────────────
+; Only valid as the value of "action" or "resource" statements.
+; A bare "*" anywhere else is a parse error.
+
+WILDCARD
+  = "*"
+  ;
+
+; ── String literal ────────────────────────────────────────────────────────────
+; Strings may be delimited by double-quotes or single-quotes.
+; The quote character must be escaped if it appears inside the string.
+; The token value does NOT include the surrounding quotes.
+; Supported escape sequences: \" \' \\ \n \t
+; Unterminated strings (no closing quote before NEWLINE or EOF) are a lex error.
+;
+; Examples:  "public"  'draft'  "it\'s fine"  "path\\to\\file"
+
+STRING
+  = '"' { string_char_dq } '"'
+  | "'" { string_char_sq } "'"
+  ;
+
+string_char_dq
+  = any_char_except_dq_or_backslash
+  | "\\" escape_seq
+  ;
+
+string_char_sq
+  = any_char_except_sq_or_backslash
+  | "\\" escape_seq
+  ;
+
+escape_seq
+  = '"' | "'" | "\\" | "n" | "t"
+  ;
+
+; ── Number literal ────────────────────────────────────────────────────────────
+; Integers and decimals. No hex, no octal, no scientific notation.
+; Negative numbers: the "-" is parsed as a unary operator, not part of NUMBER.
+; The token value is the raw numeric string; the parser converts to JS number.
+;
+; Examples:  0  42  3.14  100  0.5
+
+NUMBER
+  = DIGIT { DIGIT } [ "." DIGIT { DIGIT } ]
+  ;
+
+; ── Boolean literals ──────────────────────────────────────────────────────────
+; Exactly "true" or "false" (lowercase only).
+; "True", "TRUE", "False", "FALSE" are identifiers, not booleans.
+
+BOOLEAN
+  = "true"
+  | "false"
+  ;
+
+; ── Null literal ──────────────────────────────────────────────────────────────
+
+NULL
+  = "null"
+  ;
+
+; ── Operators ─────────────────────────────────────────────────────────────────
+
+OP_EQ   = "=="  ;
+OP_NEQ  = "!="  ;
+OP_GTE  = ">="  ;   (* must be checked BEFORE OP_GT in lexer — longest match *)
+OP_GT   = ">"   ;
+OP_LTE  = "<="  ;   (* must be checked BEFORE OP_LT in lexer — longest match *)
+OP_LT   = "<"   ;
+
+; ── Structural tokens ─────────────────────────────────────────────────────────
+
+NEWLINE   = "\n" | "\r\n" ;   (* both Unix and Windows line endings accepted *)
+WILDCARD  = "*" ;
+DOT       = "." ;             (* used inside path expressions only            *)
+COMMA     = "," ;             (* used in hierarchy_entry extends list only    *)
+PAREN_OPEN  = "(" ;
+PAREN_CLOSE = ")" ;
+EOF       = (* end of input *) ;
+
+; ── Whitespace ────────────────────────────────────────────────────────────────
+; Horizontal whitespace (spaces and tabs) is ignored everywhere EXCEPT:
+;   - It separates tokens (e.g. "role admin" not "roleadmin")
+;   - It is significant inside string literals
+; The lexer consumes and discards all non-newline whitespace between tokens.
+
+WHITESPACE
+  = " " | "\t"
+  ;   (* discarded by the lexer — never emitted as a token *)
+
+; ── Comments ──────────────────────────────────────────────────────────────────
+; A comment begins with "#" and extends to the end of the current line.
+; Comments may appear:
+;   - On a line by themselves (between any two tokens or top-level decls)
+;   - At the end of any line, after a valid token
+;   - Inside a rule block (between any two rule_statements)
+; A comment does NOT consume the NEWLINE that follows it.
+; The NEWLINE is still emitted as a token — the comment merely strips the
+; content between "#" and the line ending.
+
+COMMENT
+  = "#" { any_char_except_newline }
+  ;   (* discarded by the lexer — never emitted as a token *)
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 9. EVALUATION CONTEXT SPECIFICATION
+; ───────────────────────────────────────────────────────────────────────────────
+
+; When a condition expression is evaluated, three root variables are in scope:
+;
+;   user     — the User object passed to authz.can() / authz.explain()
+;              Must have: id (string|number), roles (string[])
+;              May have: any additional application-specific fields
+;
+;   resource — the resource object passed as the 4th argument to can()
+;              May be any plain object. Defaults to {} if not provided.
+;
+;   ctx      — extra context passed as the 5th argument to can()
+;              May be any plain object. Defaults to {} if not provided.
+;
+; All three objects are deep-cloned and Object.freeze()d before evaluation.
+; No other variables, globals, or functions are accessible inside conditions.
+; Accessing a path that does not exist returns undefined (does not throw).
+; Comparing undefined with == returns true only when both sides are undefined.
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 10. SEMANTIC RULES (enforced by compiler, not parser)
+; ───────────────────────────────────────────────────────────────────────────────
+
+; The following constraints are valid TOON v2 syntax but produce compile errors:
+;
+; SE-01  A rule block MUST contain exactly one "role" statement.
+; SE-02  A rule block MUST contain exactly one "action" statement.
+; SE-03  A rule block MUST contain exactly one "resource" statement.
+; SE-04  A rule block MUST contain at most one "effect" statement.
+; SE-05  A rule block MUST contain at most one "condition" statement.
+; SE-06  The first segment of any path_expr MUST be "user", "resource", or "ctx".
+; SE-07  A role_hierarchy_block MUST NOT define a role extending itself.
+; SE-08  The extends graph MUST be acyclic (no cycles of any length).
+; SE-09  include paths MUST NOT create circular inclusion chains.
+; SE-10  include paths MUST resolve to files within the allowed directory.
+; SE-11  At most one "role_hierarchy" block per compiled policy (after includes).
+;        If multiple included files each have one, they are merged; conflicts
+;        (same role declared in two blocks with different parents) are an error.
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 11. PRECEDENCE AND ASSOCIATIVITY SUMMARY
+; ───────────────────────────────────────────────────────────────────────────────
+
+; Operator          Precedence    Associativity
+; ─────────────────────────────────────────────
+; OR                1 (lowest)    Left
+; AND               2             Left
+; NOT               3             Right (prefix)
+; == != > >= < <=   4             Non-associative (no chaining: a == b == c)
+; ( )               5 (highest)   N/A — grouping only
+;
+; Examples:
+;   A OR B AND C          =>  A OR (B AND C)
+;   NOT A AND B           =>  (NOT A) AND B
+;   NOT A OR B            =>  (NOT A) OR B
+;   A AND B OR C AND D    =>  (A AND B) OR (C AND D)
+;   NOT NOT A             =>  NOT (NOT A)  — valid, evaluates to A
+;   (A OR B) AND C        =>  explicit grouping — as written
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 12. ERROR RECOVERY POLICY
+; ───────────────────────────────────────────────────────────────────────────────
+
+; The parser uses FAIL-FAST error recovery:
+; On the first syntax error, parsing stops immediately and throws ParseError.
+; The ParseError MUST include:
+;   - message: human-readable description of what was expected vs. found
+;   - line:    1-based line number of the offending token
+;   - column:  1-based column number of the offending token
+;   - sourcePath: absolute path to the file being parsed
+;
+; Rationale: fail-fast prevents cascading errors that produce misleading
+; secondary error messages. Authorization policy errors must be loud and precise.
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 13. COMPLETE VALID EXAMPLE
+; ───────────────────────────────────────────────────────────────────────────────
+
+; # example.toon — shows every language feature
+;
+; include "./base-roles.toon"
+;
+; role_hierarchy
+;   super_admin extends admin
+;   admin extends editor
+;   editor extends viewer
+; end
+;
+; rule
+;   role admin
+;   action *
+;   resource *
+;   effect allow
+; end
+;
+; rule
+;   role admin
+;   action delete
+;   resource archived_listing
+;   effect deny
+; end
+;
+; rule
+;   role broker
+;   action edit
+;   resource listing
+;   effect allow
+;   condition resource.owner_id == user.id AND NOT resource.suspended == true
+; end
+;
+; rule
+;   role user
+;   action view
+;   resource listing
+;   effect allow
+;   condition resource.status == "public" OR resource.owner_id == user.id
+; end
+;
+; rule
+;   role user
+;   action view
+;   resource profile         # no condition — any user can view any profile
+; end
+
+
+; ───────────────────────────────────────────────────────────────────────────────
+; 14. INVALID EXAMPLES WITH ERROR EXPLANATIONS
+; ───────────────────────────────────────────────────────────────────────────────
+
+; These are all parse or compile errors:
+;
+; [SE-01] Missing "role" statement:
+;   rule
+;     action edit
+;     resource listing
+;   end
+;   => CompileError: rule at line N is missing required "role" statement
+;
+; [SE-02] Missing "end" keyword:
+;   rule
+;     role admin
+;     action *
+;     resource *
+;   rule          <- unexpected "rule", expected "end"
+;   => ParseError: line N col 1 — expected "end", found "rule"
+;
+; [SE-04] Duplicate "effect":
+;   rule
+;     role admin
+;     action *
+;     resource *
+;     effect allow
+;     effect deny  <- duplicate
+;   end
+;   => ParseError: line N col 3 — duplicate "effect" statement in rule block
+;
+; [SE-06] Invalid path root:
+;   condition request.id == user.id   <- "request" is not a valid root
+;   => CompileError: unknown path root "request" — must be user, resource, or ctx
+;
+; [SE-07] Self-extending role:
+;   role_hierarchy
+;     admin extends admin
+;   end
+;   => CompileError: role "admin" cannot extend itself
+;
+; [SE-08] Cycle in hierarchy:
+;   role_hierarchy
+;     editor extends viewer
+;     viewer extends editor
+;   end
+;   => CompileError: cycle detected in role hierarchy: editor -> viewer -> editor
+;
+; [Lex] Unterminated string:
+;   condition resource.status == "public
+;   => ParseError: line N col 28 — unterminated string literal
+;
+; [Lex] Unknown character:
+;   condition resource.count @ 5
+;   => ParseError: line N col 23 — unexpected character "@"
+;
+; [Precedence gotcha] Comparison chaining (not allowed):
+;   condition 0 < resource.count < 100
+;   => ParseError: comparison operators are non-associative —
+;      use: resource.count > 0 AND resource.count < 100
