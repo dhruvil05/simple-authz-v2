@@ -41,7 +41,7 @@ export interface AuthzResult {
   readonly matchedRole?: string
   readonly matchedAction?: string
   readonly matchedResource?: string
-  readonly conditionResult?: boolean
+  readonly conditionResult?: boolean | undefined
   readonly durationMs: number
 }
 

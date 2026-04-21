@@ -4,21 +4,15 @@ import { resolve, isAbsolute } from 'node:path'
 import { tokenize } from './lexer.js'
 import { parse } from './parser.js'
 import { compile } from './compiler.js'
-import type { CompiledPolicy } from './compiler.js'
+import type { CompiledPolicy, PolicyIndex, CompiledRule } from './compiler.js'
+import { buildContext } from './context.js'
+import { evaluate } from './evaluator.js'
 import { PathSafetyError, AuthzError } from './errors.js'
 import type {
-  User,
-  AuthzOptions,
-  AuthzResult,
-  ValidationResult,
-  AuditRecord,
+  User, AuthzOptions, AuthzResult, ValidationResult, AuditRecord, DecisionReason,
 } from './types/public.js'
 
-// ─── Authz ───────────────────────────────────────────────────────────────────
-// Phase 5 implementation target.
-// The single public class consumers interact with.
-// All methods are safe to call concurrently — no shared mutable state after load.
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Authz ────────────────────────────────────────────────────────────────────
 
 export class Authz {
   readonly #options: Required<AuthzOptions>
@@ -31,36 +25,22 @@ export class Authz {
     }
   }
 
-  // ─── Policy loading ────────────────────────────────────────────────────────
+  // ─── Policy loading ──────────────────────────────────────────────────────
 
-  /**
-   * Synchronously load and compile a .toon policy file.
-   * Throws PathSafetyError if the resolved path leaves the current working directory.
-   * Throws ParseError or CompileError on invalid policy content.
-   */
   load(filePath: string): void {
     const safePath = this.#resolveSafe(filePath)
     const source = readFileSync(safePath, 'utf-8')
     this.#policy = this.#compileSource(source, safePath)
   }
 
-  /**
-   * Asynchronously load and compile a .toon policy file.
-   * Same safety guarantees as load().
-   */
   async loadAsync(filePath: string): Promise<void> {
     const safePath = this.#resolveSafe(filePath)
     const source = await readFile(safePath, 'utf-8')
     this.#policy = this.#compileSource(source, safePath)
   }
 
-  // ─── Authorization ─────────────────────────────────────────────────────────
+  // ─── Authorization ───────────────────────────────────────────────────────
 
-  /**
-   * Returns true if the user is permitted to perform action on resource.
-   * Deny rules always override allow rules.
-   * Returns false if no policy is loaded or no rule matches (deny-by-default).
-   */
   can(
     user: User,
     action: string,
@@ -68,36 +48,24 @@ export class Authz {
     resourceObject?: Record<string, unknown>,
     extraCtx?: Record<string, unknown>,
   ): boolean {
-    const result = this.explain(user, action, resource, resourceObject, extraCtx)
-    return result.allowed
+    return this.explain(user, action, resource, resourceObject, extraCtx).allowed
   }
 
-  /**
-   * Returns a detailed AuthzResult explaining the authorization decision.
-   * Use for debugging and audit logging. Prefer can() in hot paths.
-   */
   explain(
-    _user: User,
-    _action: string,
-    _resource: string,
-    _resourceObject?: Record<string, unknown>,
-    _extraCtx?: Record<string, unknown>,
+    user: User,
+    action: string,
+    resource: string,
+    resourceObject?: Record<string, unknown>,
+    extraCtx?: Record<string, unknown>,
   ): AuthzResult {
-    // Phase 5: implement full rule lookup + condition evaluation
     const start = performance.now()
-    const result: AuthzResult = {
-      allowed: false,
-      reason: 'no-matching-rule',
-      durationMs: Math.round((performance.now() - start) * 100) / 100,
-    }
-    this.#fireAudit(_user, _action, _resource, result)
-    return result
+    const result = this.#decide(user, action, resource, resourceObject, extraCtx)
+    const durationMs = Math.round((performance.now() - start) * 1000) / 1000
+    const final: AuthzResult = { ...result, durationMs }
+    this.#fireAudit(user, action, resource, final)
+    return final
   }
 
-  /**
-   * Validates a .toon file without loading it into the engine.
-   * Returns a ValidationResult — never throws.
-   */
   validate(filePath: string): ValidationResult {
     try {
       const safePath = this.#resolveSafe(filePath)
@@ -105,36 +73,134 @@ export class Authz {
       this.#compileSource(source, safePath)
       return { valid: true, errors: [] }
     } catch (err) {
+      // PathSafetyError is a security violation — rethrow, never swallow
+      if (err instanceof PathSafetyError) throw err
       if (err instanceof AuthzError) {
         return {
           valid: false,
-          errors: [
-            {
-              message: err.message,
-              line: 'line' in err ? (err.line as number) : 0,
-              column: 'column' in err ? (err.column as number) : 0,
-            },
-          ],
+          errors: [{
+            message: err.message,
+            line: 'line' in err ? (err.line as number) : 0,
+            column: 'column' in err ? (err.column as number) : 0,
+          }],
         }
       }
-      return {
-        valid: false,
-        errors: [{ message: String(err), line: 0, column: 0 }],
-      }
+      return { valid: false, errors: [{ message: String(err), line: 0, column: 0 }] }
     }
   }
 
-  // ─── Private ───────────────────────────────────────────────────────────────
+  // ─── Decision engine ─────────────────────────────────────────────────────
+
+  #decide(
+    user: User,
+    action: string,
+    resource: string,
+    resourceObject?: Record<string, unknown>,
+    extraCtx?: Record<string, unknown>,
+  ): Omit<AuthzResult, 'durationMs'> {
+    if (this.#policy === null) {
+      return { allowed: false, reason: 'no-matching-rule' }
+    }
+
+    // Build safe, frozen evaluation context
+    let evalCtx
+    try {
+      evalCtx = buildContext(
+        user,
+        resourceObject ?? {},
+        extraCtx ?? {},
+        this.#options.maxContextDepth,
+      )
+    } catch {
+      return { allowed: false, reason: 'no-matching-rule' }
+    }
+
+    const candidates = this.#gatherCandidates(
+      this.#policy.index, user.roles, action, resource,
+    )
+
+    // Deny rules checked first — deny always beats allow
+    for (const rule of candidates) {
+      if (rule.effect === 'deny') {
+        const condPassed = rule.condition === null || evaluate(rule.condition, evalCtx)
+        if (condPassed) {
+          return {
+            allowed: false,
+            reason: 'deny-rule-matched',
+            matchedRole: rule.role,
+            matchedAction: rule.action,
+            matchedResource: rule.resource,
+            conditionResult: rule.condition !== null ? true : undefined,
+          }
+        }
+      }
+    }
+
+    // Then allow rules
+    for (const rule of candidates) {
+      if (rule.effect === 'allow') {
+        if (rule.condition === null) {
+          const isWildcard = rule.action === '*' || rule.resource === '*'
+          return {
+            allowed: true,
+            reason: isWildcard ? 'wildcard-matched' : 'allow-rule-matched',
+            matchedRole: rule.role,
+            matchedAction: rule.action,
+            matchedResource: rule.resource,
+          }
+        }
+        const condPassed = evaluate(rule.condition, evalCtx)
+        if (condPassed) {
+          const isWildcard = rule.action === '*' || rule.resource === '*'
+          return {
+            allowed: true,
+            reason: isWildcard ? 'wildcard-matched' : 'allow-rule-matched',
+            matchedRole: rule.role,
+            matchedAction: rule.action,
+            matchedResource: rule.resource,
+            conditionResult: true,
+          }
+        }
+        return {
+          allowed: false,
+          reason: 'condition-failed',
+          matchedRole: rule.role,
+          conditionResult: false,
+        }
+      }
+    }
+
+    return { allowed: false, reason: 'no-matching-rule' }
+  }
+
+  #gatherCandidates(
+    index: PolicyIndex,
+    roles: readonly string[],
+    action: string,
+    resource: string,
+  ): CompiledRule[] {
+    const candidates: CompiledRule[] = []
+    for (const role of roles) {
+      const actionMap = index.get(role)
+      if (actionMap === undefined) continue
+      for (const actionKey of [action, '*']) {
+        const resourceMap = actionMap.get(actionKey)
+        if (resourceMap === undefined) continue
+        for (const resourceKey of [resource, '*']) {
+          const rules = resourceMap.get(resourceKey)
+          if (rules !== undefined) candidates.push(...rules)
+        }
+      }
+    }
+    return candidates
+  }
+
+  // ─── Private helpers ─────────────────────────────────────────────────────
 
   #resolveSafe(filePath: string): string {
     const cwd = process.cwd()
-    const resolved = isAbsolute(filePath)
-      ? filePath
-      : resolve(cwd, filePath)
-
-    if (!resolved.startsWith(cwd)) {
-      throw new PathSafetyError(filePath)
-    }
+    const resolved = isAbsolute(filePath) ? filePath : resolve(cwd, filePath)
+    if (!resolved.startsWith(cwd)) throw new PathSafetyError(filePath)
     return resolved
   }
 
@@ -144,12 +210,7 @@ export class Authz {
     return compile(ast)
   }
 
-  #fireAudit(
-    user: User,
-    action: string,
-    resource: string,
-    result: AuthzResult,
-  ): void {
+  #fireAudit(user: User, action: string, resource: string, result: AuthzResult): void {
     const record: AuditRecord = {
       allowed: result.allowed,
       userId: user.id,

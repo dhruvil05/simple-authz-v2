@@ -1,7 +1,7 @@
 {
   "name": "simple-authz",
-  "version": "2.0.0-alpha.0",
-  "description": "A lightweight, secure authorization engine for Node.js using TOON policy files",
+  "version": "2.0.0-alpha.1",
+  "description": "Lightweight, secure authorization engine for Node.js using TOON policy files. Zero eval(), TypeScript-first, deny-by-default.",
   "author": "Dhruvil",
   "license": "Apache-2.0",
   "type": "module",
@@ -52,7 +52,11 @@
     "policy",
     "permissions",
     "security",
-    "toon"
+    "toon",
+    "access-control",
+    "role-based",
+    "typescript",
+    "nodejs"
   ],
   "devDependencies": {
     "@types/node": "^20.19.39",
