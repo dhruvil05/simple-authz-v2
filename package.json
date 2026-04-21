@@ -1,5 +1,5 @@
 {
-  "name": "simple-authz",
+  "name": "simple-authz-v2-v2",
   "version": "2.0.0-alpha.1",
   "description": "Lightweight, secure authorization engine for Node.js using TOON policy files. Zero eval(), TypeScript-first, deny-by-default.",
   "author": "Dhruvil",
@@ -39,7 +39,7 @@
     "test:coverage": "vitest run --coverage",
     "test:security": "vitest run tests/security",
     "ci": "pnpm typecheck && pnpm lint && pnpm test:coverage && pnpm build",
-    "prepublishOnly": "pnpm ci"
+    "prepublishOnly": "npm run build"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -71,10 +71,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/dhruvil05/simple-authz.git"
+    "url": "https://github.com/dhruvil05/simple-authz-v2.git"
   },
   "bugs": {
-    "url": "https://github.com/dhruvil05/simple-authz/issues"
+    "url": "https://github.com/dhruvil05/simple-authz-v2/issues"
   },
-  "homepage": "https://github.com/dhruvil05/simple-authz#readme"
+  "homepage": "https://github.com/dhruvil05/simple-authz-v2#readme"
 }

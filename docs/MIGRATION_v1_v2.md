@@ -1,6 +1,6 @@
 # Migration guide — v1 to v2
 
-This guide covers breaking changes when upgrading from simple-authz v1
+This guide covers breaking changes when upgrading from simple-authz-v2 v1
 to v2. The v2 rewrite is a full ground-up rebuild; there are meaningful
 changes to both the policy language and the JavaScript API.
 
@@ -208,7 +208,7 @@ interface AuthzResult {
 **v2** exports typed error classes. Use `instanceof` to handle specific errors:
 
 ```ts
-import { Authz, ParseError, PathSafetyError, CompileError } from 'simple-authz'
+import { Authz, ParseError, PathSafetyError, CompileError } from 'simple-authz-v2'
 
 try {
   authz.load('./policies/authz.toon')

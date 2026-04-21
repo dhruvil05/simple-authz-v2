@@ -17,7 +17,7 @@ Please report them privately so we can coordinate a fix before public disclosure
 
 ### How to report
 
-Email: **security@simple-authz** *(replace with real address before publishing)*
+Email: **dhruvil.work10@gmail.com** *(replace with real address before publishing)*
 
 Include in your report:
 - Description of the vulnerability

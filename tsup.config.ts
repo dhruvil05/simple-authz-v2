@@ -14,7 +14,7 @@ export default defineConfig({
   cjsInterop: true,
   shims: true,
   banner: {
-    js: '// simple-authz — lightweight authorization engine (Apache 2.0)',
+    js: '// simple-authz-v2 — lightweight authorization engine (Apache 2.0)',
   },
   esbuildOptions(options) {
     options.conditions = ['import', 'require']

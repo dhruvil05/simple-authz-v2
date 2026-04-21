@@ -1,16 +1,16 @@
-# simple-authz
+# simple-authz-v2
 
 > A lightweight, secure authorization engine for Node.js using TOON policy files.
 
-![CI](https://github.com/dhruvil05/simple-authz/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/dhruvil05/simple-authz-v2/actions/workflows/ci.yml/badge.svg)
 ![Tests](https://img.shields.io/badge/tests-298%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-%E2%89%A590%25-brightgreen)
-![npm](https://img.shields.io/npm/v/simple-authz)
+![npm](https://img.shields.io/npm/v/simple-authz-v2)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
 ---
 
-## Why simple-authz?
+## Why simple-authz-v2?
 
 Authorization logic scattered across application code looks like this:
 
@@ -20,7 +20,7 @@ if (user.id === listing.owner_id) { ... }
 if (user.permissions.includes('edit_listing')) { ... }
 ```
 
-Over time this becomes unmaintainable. **simple-authz moves all authorization
+Over time this becomes unmaintainable. **simple-authz-v2 moves all authorization
 rules into a single policy file** so your application only ever asks one question:
 
 ```ts
@@ -48,7 +48,7 @@ authz.can(user, 'edit', 'listing', listing)
 ## Installation
 
 ```bash
-npm install simple-authz
+npm install simple-authz-v2
 ```
 
 **Requirements:** Node.js 18 or later.
@@ -95,7 +95,7 @@ end
 ### 2. Load and check permissions
 
 ```ts
-import { Authz } from 'simple-authz'
+import { Authz } from 'simple-authz-v2'
 
 const authz = new Authz()
 await authz.loadAsync('./policies/authz.toon')
@@ -360,7 +360,7 @@ import type {
   ValidationResult,
   PolicyError,
   DecisionReason,
-} from 'simple-authz'
+} from 'simple-authz-v2'
 
 // User shape
 interface User {
@@ -390,7 +390,7 @@ import {
   EvaluationError, // condition eval error
   PathSafetyError, // path traversal attempt
   ContextError,    // prototype pollution or bad input shape
-} from 'simple-authz'
+} from 'simple-authz-v2'
 ```
 
 ---

@@ -1,4 +1,4 @@
-// ─── simple-authz public API ─────────────────────────────────────────────────
+// ─── simple-authz-v2 public API ─────────────────────────────────────────────────
 
 export { Authz } from './authz.js'
 

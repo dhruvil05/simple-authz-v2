@@ -11,3 +11,5 @@ tsup.config.ts
 vitest.config.ts
 *.log
 *.tsbuildinfo
+.env
+node_modules
