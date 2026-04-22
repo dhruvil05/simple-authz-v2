@@ -1,5 +1,5 @@
 {
-  "name": "simple-authz-v2-v2",
+  "name": "simple-authz-v2",
   "version": "2.0.0-alpha.1",
   "description": "Lightweight, secure authorization engine for Node.js using TOON policy files. Zero eval(), TypeScript-first, deny-by-default.",
   "author": "Dhruvil",
