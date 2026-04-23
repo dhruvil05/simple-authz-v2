@@ -51,7 +51,7 @@ export function tokenize(source: string, sourcePath: string): Token[] {
       continue
     }
 
-    if (isDigit(ch)) {
+    if (isDigit(ch!)) {
       tokens.push(readNumber(state))
       continue
     }
@@ -67,7 +67,7 @@ export function tokenize(source: string, sourcePath: string): Token[] {
       continue
     }
 
-    if (isIdentStart(ch)) {
+    if (isIdentStart(ch!)) {
       tokens.push(readIdentifierOrKeyword(state))
       continue
     }
@@ -128,17 +128,17 @@ function readNumber(state: LexerState): Token {
   const line = state.line
   const col = state.col
   let value = ''
-  while (state.pos < state.source.length && isDigit(state.source[state.pos])) {
+  while (state.pos < state.source.length && isDigit(state.source[state.pos]!)) {
     value += state.source[state.pos]; advance(state)
   }
   if (
     state.pos < state.source.length &&
     state.source[state.pos] === '.' &&
     state.pos + 1 < state.source.length &&
-    isDigit(state.source[state.pos + 1])
+    isDigit(state.source[state.pos + 1]!)
   ) {
     value += '.'; advance(state)
-    while (state.pos < state.source.length && isDigit(state.source[state.pos])) {
+    while (state.pos < state.source.length && isDigit(state.source[state.pos]!)) {
       value += state.source[state.pos]; advance(state)
     }
   }
@@ -209,7 +209,7 @@ function readIdentifierOrKeyword(state: LexerState): Token {
   const line = state.line
   const col = state.col
   let value = ''
-  while (state.pos < state.source.length && isIdentContinue(state.source[state.pos])) {
+  while (state.pos < state.source.length && isIdentContinue(state.source[state.pos]!)) {
     value += state.source[state.pos]; advance(state)
   }
   const kind = KEYWORDS.get(value) ?? 'IDENTIFIER'
@@ -228,7 +228,8 @@ function deduplicateNewlines(tokens: Token[]): Token[] {
       result.push(tok); lastWasNewline = false
     }
   }
-  if (result.length > 0 && result[result.length - 1].kind === 'NEWLINE') result.pop()
+  const last = result[result.length - 1]
+  if (last && last.kind === 'NEWLINE') result.pop()
   return result
 }
 

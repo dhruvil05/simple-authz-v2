@@ -385,7 +385,7 @@ function peek(state: ParserState): Token {
 function consume(state: ParserState): Token {
   const tok = state.tokens[state.pos]
   state.pos += 1
-  return tok
+  return tok!
 }
 
 function expect(state: ParserState, kind: TokenKind): Token {
