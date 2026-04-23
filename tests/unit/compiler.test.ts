@@ -84,27 +84,27 @@ describe('Compiler — index structure', () => {
 describe('Compiler — CompiledRule shape', () => {
   it('CompiledRule.effect is "allow" for allow rules', () => {
     const rules = getRules(simpleRule, 'admin', 'edit', 'listing')
-    expect(rules[0]!.effect).toBe('allow')
+    expect(rules[0].effect).toBe('allow')
   })
   it('CompiledRule.effect is "deny" for deny rules', () => {
     const src = `rule\n  role admin\n  action delete\n  resource archive\n  effect deny\nend`
     const rules = getRules(src, 'admin', 'delete', 'archive')
-    expect(rules[0]!.effect).toBe('deny')
+    expect(rules[0].effect).toBe('deny')
   })
   it('CompiledRule.condition is null when rule has no condition', () => {
     const rules = getRules(simpleRule, 'admin', 'edit', 'listing')
-    expect(rules[0]!.condition).toBeNull()
+    expect(rules[0].condition).toBeNull()
   })
   it('CompiledRule.condition is a ConditionExpr object when present', () => {
     const src = `rule\n  role broker\n  action edit\n  resource listing\n  condition resource.owner_id == user.id\nend`
     const rules = getRules(src, 'broker', 'edit', 'listing')
-    expect(rules[0]!.condition).not.toBeNull()
-    expect(typeof rules[0]!.condition).toBe('object')
-    expect((rules[0]!.condition as ConditionExpr).kind).toBe('BinaryExpr')
+    expect(rules[0].condition).not.toBeNull()
+    expect(typeof rules[0].condition).toBe('object')
+    expect((rules[0].condition as ConditionExpr).kind).toBe('BinaryExpr')
   })
   it('CompiledRule.sourceLine matches RuleNode.line from AST', () => {
     const rules = getRules(simpleRule, 'admin', 'edit', 'listing')
-    expect(rules[0]!.sourceLine).toBe(1)
+    expect(rules[0].sourceLine).toBe(1)
   })
   it('deny and allow rules for same slot are both stored', () => {
     const src = `rule\n  role admin\n  action edit\n  resource listing\n  effect allow\nend\nrule\n  role admin\n  action edit\n  resource listing\n  effect deny\nend`

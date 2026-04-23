@@ -6,12 +6,14 @@ export default [
   {
     ignores: ['dist/**', 'coverage/**', 'node_modules/**'],
   },
+
+  // 🔥 SOURCE CODE (strict)
   {
-    files: ['src/**/*.ts', 'tests/**/*.ts'],
+    files: ['src/**/*.ts'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
-        project: './tsconfig.json',
+        project: './tsconfig.eslint.json', // ✅ FIXED
         ecmaVersion: 2022,
         sourceType: 'module',
       },
@@ -40,6 +42,9 @@ export default [
         { prefer: 'type-imports' },
       ],
 
+      // 👇 YOUR CASE: allow assertions (important)
+      '@typescript-eslint/no-unnecessary-type-assertion': 'warn',
+
       'no-eval': 'error',
       'no-new-func': 'error',
       'no-implied-eval': 'error',
@@ -47,11 +52,28 @@ export default [
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
+
+  // 🧪 TESTS (relaxed + fast)
   {
     files: ['tests/**/*.ts'],
+    languageOptions: {
+      parser: tsparser,
+      parserOptions: {
+        project: null, // 🚀 BIG improvement (no TS program needed)
+        ecmaVersion: 2022,
+        sourceType: 'module',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tseslint,
+    },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/require-await': 'off',
       'no-console': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-redundant-type-constituents': 'warn',
     },
   },
 ]

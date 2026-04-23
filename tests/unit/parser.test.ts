@@ -126,8 +126,8 @@ describe('Parser — role_hierarchy block', () => {
     const doc = parseSource(src)
     const node = doc.nodes[0] as RoleHierarchyNode
     expect(node.kind).toBe('RoleHierarchyNode')
-    expect(node.entries[0]!.role).toBe('super_admin')
-    expect(node.entries[0]!.extends).toEqual(['admin'])
+    expect(node.entries[0].role).toBe('super_admin')
+    expect(node.entries[0].extends).toEqual(['admin'])
   })
   it('parses multiple entries in one block', () => {
     const src = `role_hierarchy\n  super_admin extends admin\n  admin extends editor\nend`
@@ -139,7 +139,7 @@ describe('Parser — role_hierarchy block', () => {
     const src = `role_hierarchy\n  super_admin extends admin, editor\nend`
     const doc = parseSource(src)
     const node = doc.nodes[0] as RoleHierarchyNode
-    expect(node.entries[0]!.extends).toEqual(['admin', 'editor'])
+    expect(node.entries[0].extends).toEqual(['admin', 'editor'])
   })
 })
 

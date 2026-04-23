@@ -104,7 +104,7 @@ function deepFreeze<T extends object>(obj: T): T {
   for (const key of Object.keys(obj)) {
     const val = (obj as Record<string, unknown>)[key]
     if (val !== null && typeof val === 'object' && !Object.isFrozen(val)) {
-      deepFreeze(val as object)
+      deepFreeze(val)
     }
   }
   return obj

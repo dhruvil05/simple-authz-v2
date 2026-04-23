@@ -22,7 +22,7 @@ export function evaluate(condition: ConditionExpr, context: EvalContext): boolea
       return !evaluate(condition.operand, context)
 
     case 'BinaryExpr': {
-      const expr = condition as BinaryExpr
+      const expr = condition
       if (expr.operator === 'AND') {
         // Short-circuit: if left is false, skip right
         return evaluate(expr.left, context) && evaluate(expr.right, context)
@@ -34,7 +34,7 @@ export function evaluate(condition: ConditionExpr, context: EvalContext): boolea
       // Comparison operator
       const left = resolveValue(expr.left, context)
       const right = resolveValue(expr.right, context)
-      return compare(left, expr.operator as ComparisonOperator, right)
+      return compare(left, expr.operator, right)
     }
 
     default: {

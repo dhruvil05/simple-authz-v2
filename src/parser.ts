@@ -365,7 +365,7 @@ function parsePathExpr(state: ParserState): PathExpr {
   }
 
   // SE-06: first segment must be a valid root variable
-  const root = segments[0]!
+  const root = segments[0]
   if (root !== 'user' && root !== 'resource' && root !== 'ctx') {
     throw new ParseError({
       message: `invalid path root "${root}" — must be "user", "resource", or "ctx"`,
@@ -383,7 +383,7 @@ function peek(state: ParserState): Token {
 }
 
 function consume(state: ParserState): Token {
-  const tok = state.tokens[state.pos]!
+  const tok = state.tokens[state.pos]
   state.pos += 1
   return tok
 }

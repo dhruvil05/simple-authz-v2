@@ -46,56 +46,56 @@ describe('Lexer — keywords', () => {
 describe('Lexer — identifiers and wildcards', () => {
   it('tokenises a simple identifier: admin', () => {
     const toks = lex('admin')
-    expect(toks[0]!.kind).toBe('IDENTIFIER')
-    expect(toks[0]!.value).toBe('admin')
+    expect(toks[0].kind).toBe('IDENTIFIER')
+    expect(toks[0].value).toBe('admin')
   })
   it('tokenises a snake_case identifier: owner_id', () => {
     const toks = lex('owner_id')
-    expect(toks[0]!.kind).toBe('IDENTIFIER')
-    expect(toks[0]!.value).toBe('owner_id')
+    expect(toks[0].kind).toBe('IDENTIFIER')
+    expect(toks[0].value).toBe('owner_id')
   })
   it('tokenises a wildcard: *', () => {
     const toks = lex('*')
-    expect(toks[0]!.kind).toBe('WILDCARD')
+    expect(toks[0].kind).toBe('WILDCARD')
   })
   it('tokenises a dot-path: listing.owner_id as three tokens', () => {
     const toks = lex('listing.owner_id')
-    expect(toks[0]!.value).toBe('listing')
-    expect(toks[1]!.value).toBe('.')
-    expect(toks[2]!.value).toBe('owner_id')
+    expect(toks[0].value).toBe('listing')
+    expect(toks[1].value).toBe('.')
+    expect(toks[2].value).toBe('owner_id')
   })
 })
 
 describe('Lexer — literals', () => {
   it('tokenises a double-quoted string', () => {
     const toks = lex('"public"')
-    expect(toks[0]!.kind).toBe('STRING')
-    expect(toks[0]!.value).toBe('public')
+    expect(toks[0].kind).toBe('STRING')
+    expect(toks[0].value).toBe('public')
   })
   it('tokenises a single-quoted string', () => {
     const toks = lex("'draft'")
-    expect(toks[0]!.kind).toBe('STRING')
-    expect(toks[0]!.value).toBe('draft')
+    expect(toks[0].kind).toBe('STRING')
+    expect(toks[0].value).toBe('draft')
   })
   it('tokenises an integer', () => {
     const toks = lex('42')
-    expect(toks[0]!.kind).toBe('NUMBER')
-    expect(toks[0]!.value).toBe('42')
+    expect(toks[0].kind).toBe('NUMBER')
+    expect(toks[0].value).toBe('42')
   })
   it('tokenises a float', () => {
     const toks = lex('3.14')
-    expect(toks[0]!.kind).toBe('NUMBER')
-    expect(toks[0]!.value).toBe('3.14')
+    expect(toks[0].kind).toBe('NUMBER')
+    expect(toks[0].value).toBe('3.14')
   })
   it('tokenises boolean true', () => {
     const toks = lex('true')
-    expect(toks[0]!.kind).toBe('BOOLEAN')
-    expect(toks[0]!.value).toBe('true')
+    expect(toks[0].kind).toBe('BOOLEAN')
+    expect(toks[0].value).toBe('true')
   })
   it('tokenises boolean false', () => {
     const toks = lex('false')
-    expect(toks[0]!.kind).toBe('BOOLEAN')
-    expect(toks[0]!.value).toBe('false')
+    expect(toks[0].kind).toBe('BOOLEAN')
+    expect(toks[0].value).toBe('false')
   })
 })
 
@@ -111,12 +111,12 @@ describe('Lexer — operators', () => {
   it('tokenises NOT', () => { expect(kinds(lex('NOT'))).toContain('LOGICAL_NOT') })
   it('>= is not parsed as > followed by =', () => {
     const toks = lex('>=')
-    expect(toks[0]!.kind).toBe('OP_GTE')
+    expect(toks[0].kind).toBe('OP_GTE')
     expect(toks).toHaveLength(2) // OP_GTE + EOF
   })
   it('<= is not parsed as < followed by =', () => {
     const toks = lex('<=')
-    expect(toks[0]!.kind).toBe('OP_LTE')
+    expect(toks[0].kind).toBe('OP_LTE')
     expect(toks).toHaveLength(2)
   })
 })
@@ -139,7 +139,7 @@ describe('Lexer — line and column tracking', () => {
   })
   it('EOF token has a position', () => {
     const toks = lex('rule')
-    const eof = toks[toks.length - 1]!
+    const eof = toks[toks.length - 1]
     expect(eof.kind).toBe('EOF')
     expect(typeof eof.line).toBe('number')
     expect(typeof eof.column).toBe('number')
@@ -150,7 +150,7 @@ describe('Lexer — comments', () => {
   it('skips # line comments', () => {
     const toks = lex('# this is a comment')
     expect(toks).toHaveLength(1) // only EOF
-    expect(toks[0]!.kind).toBe('EOF')
+    expect(toks[0].kind).toBe('EOF')
   })
   it('comment at end of line does not consume next line content', () => {
     const toks = lex('rule # comment\nend')
@@ -159,14 +159,14 @@ describe('Lexer — comments', () => {
   })
   it('inline comment after value strips only to end of line', () => {
     const toks = lex('admin # the admin role')
-    expect(toks[0]!.value).toBe('admin')
+    expect(toks[0].value).toBe('admin')
   })
 })
 
 describe('Lexer — whitespace', () => {
   it('ignores leading and trailing whitespace on a line', () => {
     const toks = lex('  rule  ')
-    expect(toks[0]!.kind).toBe('KEYWORD_RULE')
+    expect(toks[0].kind).toBe('KEYWORD_RULE')
   })
   it('handles CRLF line endings', () => {
     const toks = lex('rule\r\nend')
@@ -183,7 +183,7 @@ describe('Lexer — whitespace', () => {
   it('handles a file with only whitespace', () => {
     const toks = lex('   \t  ')
     expect(toks).toHaveLength(1)
-    expect(toks[0]!.kind).toBe('EOF')
+    expect(toks[0].kind).toBe('EOF')
   })
 })
 
@@ -217,17 +217,17 @@ describe('Lexer — edge cases', () => {
   it('handles empty string input → [EOF]', () => {
     const toks = lex('')
     expect(toks).toHaveLength(1)
-    expect(toks[0]!.kind).toBe('EOF')
+    expect(toks[0].kind).toBe('EOF')
   })
   it('handles file with only comments → [EOF]', () => {
     const toks = lex('# comment only\n# another comment')
     expect(toks).toHaveLength(1)
-    expect(toks[0]!.kind).toBe('EOF')
+    expect(toks[0].kind).toBe('EOF')
   })
   it('handles unicode characters in string literals', () => {
     const toks = lex('"héllo wörld"')
-    expect(toks[0]!.kind).toBe('STRING')
-    expect(toks[0]!.value).toBe('héllo wörld')
+    expect(toks[0].kind).toBe('STRING')
+    expect(toks[0].value).toBe('héllo wörld')
   })
   it('does not emit duplicate consecutive NEWLINEs', () => {
     const toks = lex('rule\n\n\nend')

@@ -315,8 +315,8 @@ describe('Integration: validate()', () => {
   it('error object has a message string', () => {
     const authz = new Authz()
     const result = authz.validate(fixture('invalid-syntax.toon'))
-    expect(typeof result.errors[0]!.message).toBe('string')
-    expect(result.errors[0]!.message.length).toBeGreaterThan(0)
+    expect(typeof result.errors[0].message).toBe('string')
+    expect(result.errors[0].message.length).toBeGreaterThan(0)
   })
   it('never throws — always returns a result object', () => {
     const authz = new Authz()

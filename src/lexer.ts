@@ -44,7 +44,7 @@ export function tokenize(source: string, sourcePath: string): Token[] {
     skipWhitespaceAndComments(state)
     if (state.pos >= state.source.length) break
 
-    const ch = state.source[state.pos]!
+    const ch = state.source[state.pos]
 
     if (ch === '\r' || ch === '\n') {
       tokens.push(readNewline(state))
@@ -89,7 +89,7 @@ export function tokenize(source: string, sourcePath: string): Token[] {
 
 function skipWhitespaceAndComments(state: LexerState): void {
   while (state.pos < state.source.length) {
-    const ch = state.source[state.pos]!
+    const ch = state.source[state.pos]
     if (ch === ' ' || ch === '\t') { advance(state); continue }
     if (ch === '#') {
       while (
@@ -128,17 +128,17 @@ function readNumber(state: LexerState): Token {
   const line = state.line
   const col = state.col
   let value = ''
-  while (state.pos < state.source.length && isDigit(state.source[state.pos]!)) {
+  while (state.pos < state.source.length && isDigit(state.source[state.pos])) {
     value += state.source[state.pos]; advance(state)
   }
   if (
     state.pos < state.source.length &&
     state.source[state.pos] === '.' &&
     state.pos + 1 < state.source.length &&
-    isDigit(state.source[state.pos + 1]!)
+    isDigit(state.source[state.pos + 1])
   ) {
     value += '.'; advance(state)
-    while (state.pos < state.source.length && isDigit(state.source[state.pos]!)) {
+    while (state.pos < state.source.length && isDigit(state.source[state.pos])) {
       value += state.source[state.pos]; advance(state)
     }
   }
@@ -150,11 +150,11 @@ function readNumber(state: LexerState): Token {
 function readString(state: LexerState): Token {
   const line = state.line
   const col = state.col
-  const quote = state.source[state.pos]!
+  const quote = state.source[state.pos]
   advance(state)
   let value = ''
   while (state.pos < state.source.length) {
-    const ch = state.source[state.pos]!
+    const ch = state.source[state.pos]
     if (ch === '\n' || ch === '\r') {
       throw new ParseError({ message: 'unterminated string literal', line, column: col, sourcePath: state.sourcePath })
     }
@@ -164,7 +164,7 @@ function readString(state: LexerState): Token {
       if (state.pos >= state.source.length) {
         throw new ParseError({ message: 'unterminated escape sequence', line: state.line, column: state.col, sourcePath: state.sourcePath })
       }
-      const esc = state.source[state.pos]!
+      const esc = state.source[state.pos]
       switch (esc) {
         case '"':  value += '"';  break
         case "'":  value += "'";  break
@@ -186,7 +186,7 @@ function readString(state: LexerState): Token {
 function tryReadOperator(state: LexerState): Token | null {
   const line = state.line
   const col = state.col
-  const ch = state.source[state.pos]!
+  const ch = state.source[state.pos]
   const next = state.source[state.pos + 1]
 
   if (ch === '=' && next === '=') { state.pos += 2; state.col += 2; return { kind: 'OP_EQ',  value: '==', line, column: col } }
@@ -209,7 +209,7 @@ function readIdentifierOrKeyword(state: LexerState): Token {
   const line = state.line
   const col = state.col
   let value = ''
-  while (state.pos < state.source.length && isIdentContinue(state.source[state.pos]!)) {
+  while (state.pos < state.source.length && isIdentContinue(state.source[state.pos])) {
     value += state.source[state.pos]; advance(state)
   }
   const kind = KEYWORDS.get(value) ?? 'IDENTIFIER'
@@ -228,7 +228,7 @@ function deduplicateNewlines(tokens: Token[]): Token[] {
       result.push(tok); lastWasNewline = false
     }
   }
-  if (result.length > 0 && result[result.length - 1]!.kind === 'NEWLINE') result.pop()
+  if (result.length > 0 && result[result.length - 1].kind === 'NEWLINE') result.pop()
   return result
 }
 
