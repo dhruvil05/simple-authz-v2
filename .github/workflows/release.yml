@@ -41,8 +41,9 @@ jobs:
       - name: Assert dist files exist
         run: |
           test -f dist/index.cjs || (echo "FAIL: dist/index.cjs missing" && exit 1)
-          test -f dist/index.mjs || (echo "FAIL: dist/index.mjs missing" && exit 1)
+          test -f dist/index.js || (echo "FAIL: dist/index.js missing" && exit 1)
           test -f dist/index.d.ts || (echo "FAIL: dist/index.d.ts missing" && exit 1)
+          test -f dist/index.d.cts || (echo "FAIL: dist/index.d.cts missing" && exit 1)
           echo "PASS: all dist files present"
 
       - name: Publish with provenance

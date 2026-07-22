@@ -1,4 +1,4 @@
-import type { ConditionExpr, BinaryExpr, ComparisonOperator } from './types/ast.js'
+import type { ConditionExpr, ComparisonOperator } from './types/ast.js'
 import type { EvalContext } from './context.js'
 import { EvaluationError } from './errors.js'
 

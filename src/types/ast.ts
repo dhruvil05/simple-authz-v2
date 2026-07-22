@@ -76,8 +76,10 @@ export type ConditionExpr = BinaryExpr | UnaryExpr | PathExpr | LiteralExpr
 export interface RuleNode {
   readonly kind: 'RuleNode'
   readonly role: string
-  readonly action: string | '*'
-  readonly resource: string | '*'
+  /** '*' is the wildcard convention — any string value is otherwise a literal match. */
+  readonly action: string
+  /** '*' is the wildcard convention — any string value is otherwise a literal match. */
+  readonly resource: string
   readonly effect: Effect
   readonly condition: ConditionExpr | null
   readonly line: number

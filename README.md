@@ -1,16 +1,16 @@
-# simple-authz-v2
+# advance-authz
 
 > A lightweight, secure authorization engine for Node.js using TOON policy files.
 
 ![CI](https://github.com/dhruvil05/simple-authz-v2/actions/workflows/ci.yml/badge.svg)
-![Tests](https://img.shields.io/badge/tests-298%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-303%20passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-%E2%89%A590%25-brightgreen)
-![npm](https://img.shields.io/npm/v/simple-authz-v2)
+![npm](https://img.shields.io/npm/v/advance-authz)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
 ---
 
-## Why simple-authz-v2?
+## Why advance-authz?
 
 Authorization logic scattered across application code looks like this:
 
@@ -20,7 +20,7 @@ if (user.id === listing.owner_id) { ... }
 if (user.permissions.includes('edit_listing')) { ... }
 ```
 
-Over time this becomes unmaintainable. **simple-authz-v2 moves all authorization
+Over time this becomes unmaintainable. **advance-authz moves all authorization
 rules into a single policy file** so your application only ever asks one question:
 
 ```ts
@@ -37,7 +37,7 @@ authz.can(user, 'edit', 'listing', listing)
 - **Conditions** — `AND`, `OR`, `NOT` with full precedence rules
 - **Zero `eval()`** — conditions evaluated by pure AST tree-walk
 - **Prototype pollution protection** — user/resource inputs are deep-cloned and frozen
-- **Path traversal protection** — `load()` validates paths against `process.cwd()`
+- **Path traversal protection** — `load()` and `include` both validate paths against `process.cwd()`
 - **TypeScript-first** — full `.d.ts`, zero `any` in public API
 - **Dual ESM + CJS** — works with `import` and `require`
 - **Audit callback** — structured decision logging for compliance
@@ -48,7 +48,7 @@ authz.can(user, 'edit', 'listing', listing)
 ## Installation
 
 ```bash
-npm install simple-authz-v2
+npm install advance-authz
 ```
 
 **Requirements:** Node.js 18 or later.
@@ -95,7 +95,7 @@ end
 ### 2. Load and check permissions
 
 ```ts
-import { Authz } from 'simple-authz-v2'
+import { Authz } from 'advance-authz'
 
 const authz = new Authz()
 await authz.loadAsync('./policies/authz.toon')
@@ -331,8 +331,16 @@ include "./policies/listings.toon"
 include "./policies/users.toon"
 ```
 
-Paths are resolved relative to the file containing the `include`.
+Paths are resolved relative to the file containing the `include`, and every
+resolved include path is also validated against `process.cwd()` — an
+`include` cannot be used to read a file outside the project root.
 Circular includes are detected and throw a `CompileError`.
+
+> **Windows note:** string literals treat `\` as an escape-sequence
+> introducer (same as JSON/JS), so a raw Windows path like
+> `include "C:\Users\me\policy.toon"` will fail to parse. Use forward
+> slashes instead — `include "C:/Users/me/policy.toon"` — the same
+> convention used by `require()`/`import` specifiers.
 
 ---
 
@@ -360,7 +368,7 @@ import type {
   ValidationResult,
   PolicyError,
   DecisionReason,
-} from 'simple-authz-v2'
+} from 'advance-authz'
 
 // User shape
 interface User {
@@ -390,7 +398,7 @@ import {
   EvaluationError, // condition eval error
   PathSafetyError, // path traversal attempt
   ContextError,    // prototype pollution or bad input shape
-} from 'simple-authz-v2'
+} from 'advance-authz'
 ```
 
 ---
@@ -430,7 +438,7 @@ propagate to the caller.
 | **No `eval()`** | Conditions evaluated by AST tree-walk |
 | **Input isolation** | user/resource deep-cloned and frozen before evaluation |
 | **Prototype pollution** | `__proto__`, `constructor`, `prototype` keys rejected |
-| **Path safety** | `load()` paths validated against `process.cwd()` |
+| **Path safety** | `load()` and `include` paths both validated against `process.cwd()` |
 | **Depth limit** | Nested objects truncated at `maxContextDepth` (default: 10) |
 
 See [SECURITY.md](./SECURITY.md) for the vulnerability disclosure process.

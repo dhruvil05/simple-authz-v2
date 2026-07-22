@@ -73,7 +73,9 @@ export default [
       '@typescript-eslint/require-await': 'off',
       'no-console': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-      '@typescript-eslint/no-redundant-type-constituents': 'warn',
+      // Removed '@typescript-eslint/no-redundant-type-constituents': it requires
+      // type information, but this block deliberately sets project: null for
+      // speed — the two were contradictory and crashed `eslint` outright.
     },
   },
 ]

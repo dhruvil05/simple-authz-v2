@@ -1,13 +1,21 @@
 import { describe, it, expect, vi } from 'vitest'
-import { resolve } from 'node:path'
+import { resolve, join } from 'node:path'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { Authz } from '../../src/authz.js'
 import { tokenize } from '../../src/lexer.js'
 import { parse } from '../../src/parser.js'
 import { compile } from '../../src/compiler.js'
-import { PathSafetyError, ContextError } from '../../src/errors.js'
+import { PathSafetyError, ContextError, CompileError } from '../../src/errors.js'
 
 const fixture = (name: string) =>
   resolve(process.cwd(), 'tests/fixtures', name)
+
+// TOON string literals treat `\` as an escape introducer (like JSON/JS).
+// Windows-style absolute paths use `\` as the separator, so they must be
+// written with forward slashes inside a policy file's string literal —
+// same convention as require()/import specifiers.
+const toToonPath = (p: string) => p.replace(/\\/g, '/')
 
 // ─── Path traversal prevention ────────────────────────────────────────────────
 
@@ -39,6 +47,93 @@ describe('Security: path traversal prevention', () => {
       authz.load('./tests/fixtures/basic-rbac.toon')
     } catch (e) {
       expect(e).not.toBeInstanceOf(PathSafetyError)
+    }
+  })
+})
+
+// ─── Path traversal prevention — via `include` directive ─────────────────────
+//
+// The checks above only cover the top-level file passed to load()/loadAsync().
+// `include` resolves and reads a second file from disk, so it needs its own
+// enforcement — these tests exercise that path directly.
+
+describe('Security: path traversal prevention via include directive', () => {
+  it('a legitimate same-tree include still loads and merges rules', () => {
+    const authz = new Authz()
+    authz.load('./tests/fixtures/include-main.toon')
+    // super_admin comes from the main file, admin comes from the included file
+    expect(authz.can({ roles: ['super_admin'] }, 'delete', 'anything')).toBe(true)
+    expect(authz.can({ roles: ['admin'] }, 'view', 'listing')).toBe(true)
+  })
+
+  it('throws PathSafetyError when an include points outside cwd via an absolute path', () => {
+    const outsideDir = mkdtempSync(join(tmpdir(), 'authz-outside-'))
+    const outsideFile = join(outsideDir, 'secret.toon')
+    writeFileSync(outsideFile, 'rule\n  role viewer\n  action view\n  resource secret\n  effect allow\nend\n')
+
+    const mainDir = resolve(process.cwd(), 'tests/fixtures/tmp-include-abs')
+    mkdirSync(mainDir, { recursive: true })
+    const mainFile = join(mainDir, 'main.toon')
+    writeFileSync(mainFile, `include "${toToonPath(outsideFile)}"\n\nrule\n  role admin\n  action *\n  resource *\n  effect allow\nend\n`)
+
+    try {
+      const authz = new Authz()
+      expect(() => authz.load('./tests/fixtures/tmp-include-abs/main.toon')).toThrow(PathSafetyError)
+    } finally {
+      rmSync(outsideDir, { recursive: true, force: true })
+      rmSync(mainDir, { recursive: true, force: true })
+    }
+  })
+
+  it('throws PathSafetyError when an include uses ../.. to escape cwd', () => {
+    const mainDir = resolve(process.cwd(), 'tests/fixtures/tmp-include-rel')
+    mkdirSync(mainDir, { recursive: true })
+    const mainFile = join(mainDir, 'main.toon')
+    writeFileSync(mainFile, 'include "../../../../../../etc/passwd"\n\nrule\n  role admin\n  action *\n  resource *\n  effect allow\nend\n')
+
+    try {
+      const authz = new Authz()
+      expect(() => authz.load('./tests/fixtures/tmp-include-rel/main.toon')).toThrow(PathSafetyError)
+    } finally {
+      rmSync(mainDir, { recursive: true, force: true })
+    }
+  })
+
+  it('throws PathSafetyError for a sibling directory that merely shares a string prefix with cwd', () => {
+    // Guards against the classic `resolved.startsWith(cwd)` bug: a sibling
+    // directory like `${cwd}-evil` shares a string prefix with cwd but is not
+    // actually inside it.
+    const cwd = process.cwd()
+    const evilDir = `${cwd}-evil-sibling`
+    mkdirSync(evilDir, { recursive: true })
+    const evilFile = join(evilDir, 'sneaky.toon')
+    writeFileSync(evilFile, 'rule\n  role viewer\n  action view\n  resource secret\n  effect allow\nend\n')
+
+    const mainDir = resolve(cwd, 'tests/fixtures/tmp-include-sibling')
+    mkdirSync(mainDir, { recursive: true })
+    const mainFile = join(mainDir, 'main.toon')
+    writeFileSync(mainFile, `include "${toToonPath(evilFile)}"\n\nrule\n  role admin\n  action *\n  resource *\n  effect allow\nend\n`)
+
+    try {
+      const authz = new Authz()
+      expect(() => authz.load('./tests/fixtures/tmp-include-sibling/main.toon')).toThrow(PathSafetyError)
+    } finally {
+      rmSync(evilDir, { recursive: true, force: true })
+      rmSync(mainDir, { recursive: true, force: true })
+    }
+  })
+
+  it('detects a circular include (A includes B, B includes A) as a CompileError', () => {
+    const dir = resolve(process.cwd(), 'tests/fixtures/tmp-include-circular')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'a.toon'), 'include "./b.toon"\n\nrule\n  role admin\n  action *\n  resource *\n  effect allow\nend\n')
+    writeFileSync(join(dir, 'b.toon'), 'include "./a.toon"\n\nrule\n  role user\n  action view\n  resource listing\n  effect allow\nend\n')
+
+    try {
+      const authz = new Authz()
+      expect(() => authz.load('./tests/fixtures/tmp-include-circular/a.toon')).toThrow(CompileError)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
     }
   })
 })

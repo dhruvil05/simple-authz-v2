@@ -62,9 +62,23 @@ jobs:
       - name: Assert dist files exist
         run: |
           test -f dist/index.cjs || (echo "FAIL: dist/index.cjs missing" && exit 1)
-          test -f dist/index.mjs || (echo "FAIL: dist/index.mjs missing" && exit 1)
+          test -f dist/index.js || (echo "FAIL: dist/index.js missing" && exit 1)
           test -f dist/index.d.ts || (echo "FAIL: dist/index.d.ts missing" && exit 1)
+          test -f dist/index.d.cts || (echo "FAIL: dist/index.d.cts missing" && exit 1)
           echo "PASS: all dist files present"
+
+      - name: Package smoke test — verify import/require actually work
+        run: |
+          npm pack
+          mkdir -p /tmp/pkg-smoke-test
+          cp simple-authz-v2-*.tgz /tmp/pkg-smoke-test/pkg.tgz
+          cd /tmp/pkg-smoke-test
+          npm init -y >/dev/null 2>&1
+          npm install ./pkg.tgz --no-audit --no-fund
+          echo "import { Authz } from 'simple-authz-v2'; if (typeof Authz !== 'function') throw new Error('ESM import failed')" > test-esm.mjs
+          echo "const { Authz } = require('simple-authz-v2'); if (typeof Authz !== 'function') throw new Error('CJS require failed')" > test-cjs.cjs
+          node test-esm.mjs && echo "PASS: ESM import works"
+          node test-cjs.cjs && echo "PASS: CJS require works"
 
       - name: Upload coverage
         if: matrix.node-version == 20

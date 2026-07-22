@@ -11,6 +11,7 @@ import type {
 import { CompileError } from './errors.js'
 import { tokenize } from './lexer.js'
 import { parse } from './parser.js'
+import { assertPathWithinRoot } from './path-safety.js'
 
 // ─── Compiled structures ──────────────────────────────────────────────────────
 
@@ -20,8 +21,10 @@ import { parse } from './parser.js'
  */
 export interface CompiledRule {
   readonly role: string
-  readonly action: string | '*'
-  readonly resource: string | '*'
+  /** '*' is the wildcard convention — any string value is otherwise a literal match. */
+  readonly action: string
+  /** '*' is the wildcard convention — any string value is otherwise a literal match. */
+  readonly resource: string
   readonly effect: 'allow' | 'deny'
   readonly condition: ConditionExpr | null
   readonly sourceLine: number
@@ -50,6 +53,7 @@ export interface CompiledPolicy {
 export function compile(
   doc: PolicyDocument,
   _seenPaths: ReadonlySet<string> = new Set(),
+  rootDir?: string,
 ): CompiledPolicy {
   // Track included files to detect circular includes
   const seenPaths = new Set(_seenPaths)
@@ -59,7 +63,7 @@ export function compile(
   const allNodes: TopLevelNode[] = []
   for (const node of doc.nodes) {
     if (node.kind === 'IncludeNode') {
-      const includedNodes = resolveInclude(node, doc.sourcePath, seenPaths)
+      const includedNodes = resolveInclude(node, doc.sourcePath, seenPaths, rootDir)
       allNodes.push(...includedNodes)
     } else {
       allNodes.push(node)
@@ -101,9 +105,17 @@ function resolveInclude(
   node: IncludeNode,
   parentPath: string,
   seenPaths: Set<string>,
+  rootDir?: string,
 ): TopLevelNode[] {
   const baseDir = dirname(parentPath)
   const resolvedPath = resolve(baseDir, node.path)
+
+  // Same boundary enforced on the top-level load() must hold for every
+  // included file too — otherwise `include` becomes an arbitrary-file-read
+  // primitive that bypasses the load-time check entirely.
+  if (rootDir !== undefined) {
+    assertPathWithinRoot(resolvedPath, rootDir, node.path)
+  }
 
   if (seenPaths.has(resolvedPath)) {
     throw new CompileError({
@@ -133,7 +145,7 @@ function resolveInclude(
   const resolvedNodes: TopLevelNode[] = []
   for (const n of includedDoc.nodes) {
     if (n.kind === 'IncludeNode') {
-      resolvedNodes.push(...resolveInclude(n, resolvedPath, newSeen))
+      resolvedNodes.push(...resolveInclude(n, resolvedPath, newSeen, rootDir))
     } else {
       resolvedNodes.push(n)
     }
@@ -241,6 +253,7 @@ export function expandHierarchy(
   graph: Map<string, string[]>,
   sourcePath: string,
 ): CompiledRule[] {
+  void sourcePath
   if (graph.size === 0) {
     // No hierarchy — just convert rules directly
     return rules.map(ruleNodeToCompiled)

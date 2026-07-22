@@ -8,8 +8,9 @@ import type { CompiledPolicy, PolicyIndex, CompiledRule } from './compiler.js'
 import { buildContext } from './context.js'
 import { evaluate } from './evaluator.js'
 import { PathSafetyError, AuthzError } from './errors.js'
+import { assertPathWithinRoot } from './path-safety.js'
 import type {
-  User, AuthzOptions, AuthzResult, ValidationResult, AuditRecord, DecisionReason,
+  User, AuthzOptions, AuthzResult, ValidationResult, AuditRecord,
 } from './types/public.js'
 
 // ─── Authz ────────────────────────────────────────────────────────────────────
@@ -200,14 +201,14 @@ export class Authz {
   #resolveSafe(filePath: string): string {
     const cwd = process.cwd()
     const resolved = isAbsolute(filePath) ? filePath : resolve(cwd, filePath)
-    if (!resolved.startsWith(cwd)) throw new PathSafetyError(filePath)
+    assertPathWithinRoot(resolved, cwd, filePath)
     return resolved
   }
 
   #compileSource(source: string, sourcePath: string): CompiledPolicy {
     const tokens = tokenize(source, sourcePath)
     const ast = parse(tokens, sourcePath)
-    return compile(ast)
+    return compile(ast, undefined, process.cwd())
   }
 
   #fireAudit(user: User, action: string, resource: string, result: AuthzResult): void {

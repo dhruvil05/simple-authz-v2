@@ -229,7 +229,7 @@ function deduplicateNewlines(tokens: Token[]): Token[] {
     }
   }
   const last = result[result.length - 1]
-  if (last && last.kind === 'NEWLINE') result.pop()
+  if (last?.kind === 'NEWLINE') result.pop()
   return result
 }
 
