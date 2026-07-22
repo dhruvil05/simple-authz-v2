@@ -9,7 +9,6 @@ jobs:
   release:
     name: Publish to npm
     runs-on: ubuntu-latest
-
     permissions:
       contents: write
       id-token: write
@@ -18,17 +17,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node 20
+      - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          registry-url: https://registry.npmjs.org
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run full CI
+      - name: Run full CI checks
         run: |
           npm run typecheck
           npm run lint
@@ -38,15 +36,23 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Assert dist files exist
+      - name: Verify dist files exist
         run: |
-          test -f dist/index.cjs || (echo "FAIL: dist/index.cjs missing" && exit 1)
-          test -f dist/index.js || (echo "FAIL: dist/index.js missing" && exit 1)
-          test -f dist/index.d.ts || (echo "FAIL: dist/index.d.ts missing" && exit 1)
-          test -f dist/index.d.cts || (echo "FAIL: dist/index.d.cts missing" && exit 1)
-          echo "PASS: all dist files present"
+          test -f dist/index.cjs || exit 1
+          test -f dist/index.js || exit 1
+          test -f dist/index.d.ts || exit 1
+          test -f dist/index.d.cts || exit 1
 
-      - name: Publish with provenance
+      - name: Set version from tag
+        id: set_version
+        run: |
+          VERSION=${{ github.ref_name }}
+          VERSION=${VERSION#v}
+          echo "::set-output name=version::$VERSION"
+          echo "Setting package version to $VERSION"
+          npm version "$VERSION" --no-git-tag-version
+
+      - name: Publish to npm
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
